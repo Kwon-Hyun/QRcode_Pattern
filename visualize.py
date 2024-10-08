@@ -26,6 +26,10 @@ def draw(img, imagePoints, projectedPoints):
         imgpts = [tuple(map(int, pt.ravel())) for pt in projectedPoints]
 
         img = cv2.line(img, corner, imgpts[0], (255,0,0), 5)
+        img = cv2.line(img, corner, imgpts[1], (0, 255, 0), 5)
+        img = cv2.line(img, corner, imgpts[2], (0,0, 255), 5)
+
+
         #img = cv2.line(img, corner, tuple(imgpts[0].ravel()), (255,0,0), 5)
         #img = cv2.line(img, corner, tuple(imgpts[1].ravel()), (0,255,0), 5)
         #img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 5)

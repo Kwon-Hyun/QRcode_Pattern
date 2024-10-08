@@ -3,67 +3,78 @@ import numpy as np
 import glob
 import QRPoints
 
-#This program calibrates the camera using the images given.
+# 이미지 읽기
+images = glob.glob('markerImages/*.JPG')
 
-#read images
-images=glob.glob('markerImages/*.JPG')
+# 종료 조건 설정 (코너 추출의 종료 조건)
+criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
-#Termination criteria
-criteria=(cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER,30,0.001)
+# 3D 점 배열 초기화
+objp = np.zeros((6, 3), dtype=np.float32)
 
-#Initialize 3D point array.
-objp=np.zeros((6,3),dtype=np.float32)
+# 패턴 이미지에 있는 3D 좌표 목록. 실제 3D 공간에서의 좌표를 cm 단위로 지정
+pointList = [[0, 0, 0], [2.464, 2.464, 0], [0, 8.8, 0], [2.464, 6.336, 0], [8.8, 0, 0], [6.336, 2.464, 0]]
 
-#List of points in the pattern.png image. Coordinates correspond to cm.
-#These are object points so they are three dimensional, z always being 0
-pointList=[[0,0,0],[2.464,2.464,0],[0,8.8,0],[2.464,6.336,0],[8.8,0,0],[6.336,2.464,0]]
+# 3D 좌표 배열에 pointList 값을 채웁니다.
+for i, x in zip(pointList, range(0, len(pointList))):
+    objp[x] = i
 
-#Append the points to 3D point array
-for i,x in zip(pointList,range(0,len(pointList))):
-	objp[x]=i
+# 이미지 좌표와 3D 좌표를 저장할 리스트
+imgPointsList = []
+objPointsList = []
 
-
-#These lists store the points in the 2D image and the corresponding points on
-#the object
-imgPointsList=[]
-objPointsList=[]
-
-
-#QRCODE.getPoints() gets the marker points from the image.
-#Append the points to the lists
+# QR 코드 코너를 추출하고, 2D 및 3D 좌표를 리스트에 저장
 for fname in images:
-	print(fname)
-	#read an image
-	image=cv2.imread(fname)
-	gray=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+    print(fname)
+    image = cv2.imread(fname)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-	#Get the corner points
-	points,success=QRPoints.getPoints(fname)
+    # QR 코드 코너 추출
+    points, success = QRPoints.getPoints(fname)
 
-	#If the function isn't successful
-	if not success:
-		#Try again and add points to imgPointsList array
-		points,success=QRPoints.getPoints(fname,7,3)
-		cv2.cornerSubPix(gray,points,(11,11),(-1,-1),criteria)
-		imgPointsList.append(points)
-		objPointsList.append(objp)
-	else:
-		cv2.cornerSubPix(gray,points,(11,11),(-1,-1),criteria)
-		imgPointsList.append(points)
-		objPointsList.append(objp)
+    if not success:
+        # 코너가 제대로 감지되지 않았을 경우
+        points, success = QRPoints.getPoints(fname, 7, 3)
+        cv2.cornerSubPix(gray, points, (11, 11), (-1, -1), criteria)
+        imgPointsList.append(points)
+        objPointsList.append(objp)
+    else:
+        # 코너 보정 및 리스트 추가
+        cv2.cornerSubPix(gray, points, (11, 11), (-1, -1), criteria)
+        imgPointsList.append(points)
+        objPointsList.append(objp)
 
-#calibrate the camera with the img points and the object points
-ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objPointsList, imgPointsList, gray.shape[::-1],None,None)
+# 카메라 캘리브레이션
+ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objPointsList, imgPointsList, gray.shape[::-1], None, None)
 
-#Write to file
-np.savez('iPhoneCam2.npz',mtx=mtx,dist=dist,rvecs=rvecs,tvecs=tvecs)
+# 캘리브레이션 결과를 파일에 저장
+np.savez('iPhoneCam2.npz', mtx=mtx, dist=dist, rvecs=rvecs, tvecs=tvecs)
 
-#Find the projection error
+# 시각적 확인을 위해 이미지에서 왜곡 보정
+for fname in images:
+    image = cv2.imread(fname)
+    h, w = image.shape[:2]
+
+    # 왜곡 보정된 이미지 생성
+    undistorted_img = cv2.undistort(image, mtx, dist, None, mtx)
+
+    # 원본 이미지와 보정된 이미지 비교를 위해 나란히 표시
+    combined = np.hstack((image, undistorted_img))
+
+    # 이미지 출력 (원본 vs 보정된 이미지)
+    cv2.imshow('Original vs Undistorted', combined)
+    
+    # 'q' 키를 누르면 다음 이미지로 넘어감
+    if cv2.waitKey(0) & 0xFF == ord('q'):
+        break
+
+cv2.destroyAllWindows()
+
+# 프로젝션 오류 계산
 mean_error = 0
 for i in range(len(objPointsList)):
-	imgpoints2, _ = cv2.projectPoints(objPointsList[i], rvecs[i], tvecs[i], mtx, dist)
-	print (imgpoints2.shape)
-	print (imgPointsList[i].shape)
-	error = cv2.norm(imgPointsList[i],imgpoints2, cv2.NORM_L2)/len(imgpoints2)
-	mean_error += error
-print ("total error: ", mean_error/len(objPointsList))
+    imgpoints2, _ = cv2.projectPoints(objPointsList[i], rvecs[i], tvecs[i], mtx, dist)
+    error = cv2.norm(imgPointsList[i], imgpoints2, cv2.NORM_L2) / len(imgpoints2)
+    mean_error += error
+
+print("total error: ", mean_error / len(objPointsList))
