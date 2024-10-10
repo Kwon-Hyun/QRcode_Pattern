@@ -10,7 +10,7 @@ CV_QR_WEST = 3
 
 # 두 점 사이의 거리를 계산하는 함수
 def cv_distance(P, Q):
-    return np.sqrt((P[0] - Q[0]) ** 2 + (P[1] - Q[1]) ** 2)
+    return np.sqrt((P[0] - Q[0]) ** 2 + (P[1] - Q[1]) ** 2) # sqrt : 제곱근 구하는 함수
 
 # 선 L-M을 기준으로 점 J에서 수직으로 떨어진 거리를 계산하는 함수
 def cv_lineEquation(L, M, J):
@@ -19,6 +19,7 @@ def cv_lineEquation(L, M, J):
     c = ((M[1] - L[1]) / (M[0] - L[0])) * L[0] - L[1]
     pdist = (a * J[0] + (b * J[1]) + c) / np.sqrt(a * a + b * b)
     return pdist
+
 
 # 두 점으로 이루어진 선의 기울기를 계산하는 함수
 def cv_lineSlope(L, M):
@@ -78,11 +79,12 @@ def find_qr_orientation(contours, mc):
 
 # QR 코드에서 세 개의 위치 패턴 감지 및 방향 계산
 def detect_qr(image):
-    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    edges = cv.Canny(gray, 100, 200)
+    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)    # 이미지 grayscale
+    edges = cv.Canny(gray, 100, 200)    # qr detection을 위한 Canny Edge detection
 
     # 윤곽선 찾기
-    contours, hierarchy = cv.findContours(edges, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv.findContours(edges, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)  # contour에서 3개의 alignment pattern 탐지
+
 
     mark = 0
     A, B, C = None, None, None
@@ -127,7 +129,7 @@ def detect_qr(image):
 
 # 실시간 카메라 스트리밍 및 QR 코드 감지
 def realtime_qr_detection():
-    cap = cv.VideoCapture(0)  # 0번 카메라(웹캠) 사용
+    cap = cv.VideoCapture(0)  # 0번 : 카메라(웹캠) 사용
 
     if not cap.isOpened():
         print("카메라를 열 수 없습니다.")
