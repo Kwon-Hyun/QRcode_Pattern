@@ -1,4 +1,4 @@
-import cv2
+import cv2 as cv
 import numpy as np
 import math
 
@@ -78,14 +78,15 @@ def find_qr_orientation(contours, mc):
 
 # QR 코드에서 세 개의 위치 패턴 감지 및 방향 계산
 def detect_qr(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 100, 200)
+    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    edges = cv.Canny(gray, 100, 200)
 
     # 윤곽선 찾기
-    contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv.findContours(edges, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
     mark = 0
     A, B, C = None, None, None
+
     for i in range(len(contours)):
         k = i
         c = 0
@@ -105,7 +106,7 @@ def detect_qr(image):
             mark += 1
 
     if mark >= 3:  # QR 코드 위치 탐지 패턴 3개를 찾았을 때
-        mu = [cv2.moments(contours[A]), cv2.moments(contours[B]), cv2.moments(contours[C])]
+        mu = [cv.moments(contours[A]), cv.moments(contours[B]), cv.moments(contours[C])]
         mc = [(
             mu[i]["m10"] / mu[i]["m00"],
             mu[i]["m01"] / mu[i]["m00"]
@@ -117,16 +118,16 @@ def detect_qr(image):
         print(f"Top: {outlier}, Bottom: {bottom}, Right: {right}")
 
         # 외곽선 그리기
-        cv2.drawContours(image, contours, A, (0, 255, 0), 2)
-        cv2.drawContours(image, contours, B, (255, 0, 0), 2)
-        cv2.drawContours(image, contours, C, (0, 0, 255), 2)
+        cv.drawContours(image, contours, A, (0, 255, 0), 2)
+        cv.drawContours(image, contours, B, (255, 0, 0), 2)
+        cv.drawContours(image, contours, C, (0, 0, 255), 2)
 
         return image
     return None
 
 # 실시간 카메라 스트리밍 및 QR 코드 감지
 def realtime_qr_detection():
-    cap = cv2.VideoCapture(0)  # 0번 카메라(웹캠) 사용
+    cap = cv.VideoCapture(0)  # 0번 카메라(웹캠) 사용
 
     if not cap.isOpened():
         print("카메라를 열 수 없습니다.")
@@ -143,16 +144,16 @@ def realtime_qr_detection():
         processed_frame = detect_qr(frame)
 
         if processed_frame is not None:
-            cv2.imshow('QR Code Detection', processed_frame)
+            cv.imshow('QR Code Detection', processed_frame)
         else:
-            cv2.imshow('QR Code Detection', frame)
+            cv.imshow('QR Code Detection', frame)
 
         # 'q' 키를 누르면 종료
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv.waitKey(1) & 0xFF == ord('q'):
             break
 
     cap.release()
-    cv2.destroyAllWindows()
+    cv.destroyAllWindows()
 
 if __name__ == "__main__":
     realtime_qr_detection()
