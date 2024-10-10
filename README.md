@@ -12,5 +12,5 @@
     5-2. img_gray에 대해 Canny Edge(img_canny) 진행 <br>
     5-3. Position Pattern 탐지하면 그 각 pattern에 윤곽선 그리기 <br>
 6. QR code Position Pattern 탐지
-7. <br>
-    6-1. 패턴 3개 다 탐지 GOOD => QR code 방향, 위치(top, bottom, right) 터미널에 출력 및 b-box 그리기
+   <br>
+   6-1. 패턴 3개 다 탐지 GOOD => QR code 방향, 위치(top, bottom, right) 터미널에 출력 및 b-box 그리기
