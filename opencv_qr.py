@@ -2,17 +2,22 @@ import cv2 as cv
 import numpy as np
 import math
 
-# QR 코드 방향 정의
-CV_QR_NORTH = 0
-CV_QR_EAST = 1
-CV_QR_SOUTH = 2
-CV_QR_WEST = 3
+# algirithm
+# 1. position pattern 2개 기준으로 위쪽(0), 오(1), 아래(2), 왼(3)으로 설정해서 어느 쪽을 나타내는지 파악
+# 2. position pattern 2개따리의 각 중심점을 기준으로 두 점 사이 거리 게산
+# 3. 두 점 사이의 거리를 계산하며 그린 선분LM을 가지고, 세로 길이 측정.
+
+# QR 코드 방향 정의 (북쪽부터 시계 방향으로 돌아가유~)
+CV_QR_NORTH = 0 # 북
+CV_QR_EAST = 1  # 동
+CV_QR_SOUTH = 2 # 남
+CV_QR_WEST = 3  # 서
 
 # 두 점 사이의 거리를 계산하는 함수
 def cv_distance(P, Q):
     return np.sqrt((P[0] - Q[0]) ** 2 + (P[1] - Q[1]) ** 2) # sqrt : 제곱근 구하는 함수
 
-# 선 L-M을 기준으로 점 J에서 수직으로 떨어진 거리를 계산하는 함수
+# 선분 LM을 기준으로 점 J에서 수직으로 떨어진 거리를 계산하는 함수
 def cv_lineEquation(L, M, J):
     a = -(M[1] - L[1]) / (M[0] - L[0])
     b = 1.0
@@ -58,18 +63,22 @@ def find_qr_orientation(contours, mc):
         bottom = median1
         right = median2
         orientation = CV_QR_NORTH
+
     elif slope < 0 and dist < 0:
         bottom = median1
         right = median2
         orientation = CV_QR_NORTH
+
     elif slope > 0 and dist < 0:
         right = median1
         bottom = median2
         orientation = CV_QR_EAST
+
     elif slope < 0 and dist > 0:
         right = median1
         bottom = median2
         orientation = CV_QR_SOUTH
+
     elif slope > 0 and dist > 0:
         bottom = median1
         right = median2
@@ -77,14 +86,24 @@ def find_qr_orientation(contours, mc):
 
     return outlier, bottom, right, orientation
 
+
+
+
+#def qr_calibration():
+
+
+
+
+
+
 # QR 코드에서 세 개의 위치 패턴 감지 및 방향 계산
 def detect_qr(image):
-    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)    # 이미지 grayscale
-    edges = cv.Canny(gray, 100, 200)    # qr detection을 위한 Canny Edge detection
+    # 간단한 이미지 전처리
+    img_gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)    # 이미지 grayscale
+    img_canny = cv.Canny(img_gray, 100, 200)    # qr detection을 위한 Canny Edge detection
 
     # 윤곽선 찾기
-    contours, hierarchy = cv.findContours(edges, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)  # contour에서 3개의 alignment pattern 탐지
-
+    contours, hierarchy = cv.findContours(img_canny, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)  # contour에서 3개의 alignment pattern 탐지
 
     mark = 0
     A, B, C = None, None, None
