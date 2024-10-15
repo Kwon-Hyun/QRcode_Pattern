@@ -4,20 +4,15 @@ import math
 import os
 import time
 
-# algirithm
-# 1. position pattern 2개 기준으로 위쪽(0), 오(1), 아래(2), 왼(3)으로 설정해서 어느 쪽을 나타내는지 파악
-# 2. position pattern 2개따리의 각 중심점을 기준으로 두 점 사이 거리 게산
-# 3. 두 점 사이의 거리를 계산하며 그린 선분LM을 가지고, 세로 길이 측정.
-
-# QR 코드 방향 정의 (북쪽부터 시계 방향으로 돌아가유~)
-CV_QR_NORTH = 0 # 북
-CV_QR_EAST = 1  # 동
-CV_QR_SOUTH = 2 # 남
-CV_QR_WEST = 3  # 서
+# QR 코드 방향 정의 (북쪽부터 시계 방향으로 돌아감)
+CV_QR_NORTH = 0  # 북
+CV_QR_EAST = 1   # 동
+CV_QR_SOUTH = 2  # 남
+CV_QR_WEST = 3   # 서
 
 # 두 점 사이의 거리를 계산하는 함수
 def cv_distance(P, Q):
-    return np.sqrt((P[0] - Q[0]) ** 2 + (P[1] - Q[1]) ** 2) # sqrt : 제곱근 구하는 함수
+    return np.sqrt((P[0] - Q[0]) ** 2 + (P[1] - Q[1]) ** 2)
 
 # 선분 LM을 기준으로 점 J에서 수직으로 떨어진 거리를 계산하는 함수
 def cv_lineEquation(L, M, J):
@@ -26,7 +21,6 @@ def cv_lineEquation(L, M, J):
     c = ((M[1] - L[1]) / (M[0] - L[0])) * L[0] - L[1]
     pdist = (a * J[0] + (b * J[1]) + c) / np.sqrt(a * a + b * b)
     return pdist
-
 
 # 두 점으로 이루어진 선의 기울기를 계산하는 함수
 def cv_lineSlope(L, M):
@@ -86,55 +80,47 @@ def find_qr_orientation(contours, mc):
         right = median2
         orientation = CV_QR_WEST
 
-    return outlier, bottom, right, orientation, slope
+    return outlier, bottom, right, orientation, slope  # slope 추가 반환
 
-
-
-# QR code calibration을 위한 함수 (feat.원근변환ㅎㅎ)
+# QR 코드 캘리브레이션을 위한 함수 (원근 변환)
 def qr_calibration(image, mc):
-    # QR code position pattern 좌표 (3개)
+    # QR 코드 위치 패턴 좌표 (3개의 위치 패턴)
     src_pts = np.array([mc[0], mc[1], mc[2]], dtype="float32")
 
-    # calibration 후 사용할 기준 좌표 (이론상 정확히 QR code가 정사각형일 때)
+    # 캘리브레이션 후 사용할 기준 좌표 (이론적으로 QR 코드의 위치가 정확히 정사각형일 때 좌표)
     dst_pts = np.array([
-        [0, 0],
-        [image.shape[1], 0],
-        [image.shape[1], image.shape[0]]
+        [0, 0],         # 왼쪽 위
+        [image.shape[1], 0],  # 오른쪽 위
+        [image.shape[1], image.shape[0]]  # 오른쪽 아래
     ], dtype="float32")
 
-    
-    # 원근 반환 행렬 계산
+    # 원근 변환 행렬 계산
     M = cv.getAffineTransform(src_pts, dst_pts)
 
-    # 변환 적용해서 image calibration
+    # 변환을 적용하여 이미지를 캘리브레이션
     calibrated_image = cv.warpAffine(image, M, (image.shape[1], image.shape[0]))
 
     return calibrated_image
 
-
-# 기울기(회전 각도) 계산하는 함수 (position pattern의 기울기 활용)
+# 회전 각도를 계산하는 함수
 def calculate_rotation_angle(slope):
-    # arctan 사용해서 기울기에서 각도 계산~
+    # 아크탄젠트를 사용해 기울기에서 각도 계산
     angle = np.degrees(np.arctan(slope))
-
     return angle
 
-
-# calibration된 이미지를 저장하는 함수
+# 캘리브레이션된 이미지를 저장하는 함수
 def save_calibrated_image(image, folder="calibrated_qr_images"):
-    # folder 없으면 생성
+    # 폴더가 없으면 생성
     if not os.path.exists(folder):
         os.makedirs(folder)
-
     
-    # 파일명에 timestamp 추가하여 중복 방지
+    # 파일 이름에 타임스탬프를 추가하여 중복 방지
     filename = f"calibrated_{int(time.time())}.jpg"
     filepath = os.path.join(folder, filename)
 
     # 이미지 저장
     cv.imwrite(filepath, image)
-    print(f"저장된 캘리브레이션 이미지~ : {filepath}")
-
+    print(f"저장된 캘리브레이션 이미지: {filepath}")
 
 # QR 코드에서 세 개의 위치 패턴 감지 및 방향 계산
 def detect_qr(image):
@@ -173,29 +159,28 @@ def detect_qr(image):
             mu[i]["m01"] / mu[i]["m00"]
         ) for i in range(3)]
 
-        outlier, bottom, right, orientation, slope = find_qr_orientation(contours, mc)
+        outlier, bottom, right, orientation, slope = find_qr_orientation(contours, mc)  # slope 추가 받음
 
         print(f"QR 코드 방향: {orientation}")
         print(f"Top: {outlier}, Bottom: {bottom}, Right: {right}")
 
         # 회전 각도 계산
         rotation_angle = calculate_rotation_angle(slope)
-        print(f"QR code 기울기(회전각) : {rotation_angle}도")
+        print(f"QR 코드의 기울기(회전 각도): {rotation_angle}도")
 
         # 외곽선 그리기
         cv.drawContours(image, contours, A, (0, 255, 0), 2)
         cv.drawContours(image, contours, B, (255, 0, 0), 2)
         cv.drawContours(image, contours, C, (0, 0, 255), 2)
 
-        # QR code calibration
+        # QR 코드 캘리브레이션
         calibrated_image = qr_calibration(image, mc)
 
-        # calibration된 이미지 저장
+        # 캘리브레이션된 이미지 저장
         save_calibrated_image(calibrated_image)
 
         return calibrated_image
     return None
-
 
 # 실시간 카메라 스트리밍 및 QR 코드 감지
 def realtime_qr_detection():
@@ -225,7 +210,4 @@ def realtime_qr_detection():
             break
 
     cap.release()
-    cv.destroyAllWindows()
-
-if __name__ == "__main__":
-    realtime_qr_detection()
+   
