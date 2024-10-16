@@ -10,10 +10,10 @@ import time
 # 3. 두 점 사이의 거리를 계산하며 그린 선분LM을 가지고, 세로 길이 측정.
 
 # QR 코드 방향 정의 (북쪽부터 시계 방향으로 돌아가유~)
-CV_QR_NORTH = 0 # 북
-CV_QR_EAST = 1  # 동
-CV_QR_SOUTH = 2 # 남
-CV_QR_WEST = 3  # 서
+CV_QR_UP = 0 # 북
+CV_QR_RIGHT = 1  # 동
+CV_QR_DOWN = 2 # 남
+CV_QR_LEFT = 3  # 서
 
 # 두 점 사이의 거리를 계산하는 함수
 def cv_distance(P, Q):
@@ -64,27 +64,27 @@ def find_qr_orientation(contours, mc):
     if align == 0:
         bottom = median1
         right = median2
-        orientation = CV_QR_NORTH
+        orientation = CV_QR_UP
 
     elif slope < 0 and dist < 0:
         bottom = median1
         right = median2
-        orientation = CV_QR_NORTH
+        orientation = CV_QR_UP
 
     elif slope > 0 and dist < 0:
         right = median1
         bottom = median2
-        orientation = CV_QR_EAST
+        orientation = CV_QR_RIGHT
 
     elif slope < 0 and dist > 0:
         right = median1
         bottom = median2
-        orientation = CV_QR_SOUTH
+        orientation = CV_QR_DOWN
 
     elif slope > 0 and dist > 0:
         bottom = median1
         right = median2
-        orientation = CV_QR_WEST
+        orientation = CV_QR_LEFT
 
     return outlier, bottom, right, orientation, slope
 
@@ -94,7 +94,7 @@ def find_qr_orientation(contours, mc):
 def qr_calibration(image, mc):
     # QR code position pattern 좌표 (3개)
     src_pts = np.array([mc[0], mc[1], mc[2]], dtype="float32")
-
+    '''
     # calibration 후 사용할 기준 좌표 (이론상 정확히 QR code가 정사각형일 때)
     dst_pts = np.array([
         [0, 0],
@@ -108,6 +108,27 @@ def qr_calibration(image, mc):
 
     # 변환 적용해서 image calibration
     calibrated_image = cv.warpAffine(image, M, (image.shape[1], image.shape[0]))
+    '''
+
+    # 캘리브레이션 후 사용할 기준 좌표 (QR 코드의 원래 크기를 유지하기 위해)
+    dst_pts = np.array([
+        mc[0],  # 같은 좌표 유지
+        [mc[0][0] + cv_distance(mc[0], mc[1]), mc[0][1]],  # 가로 길이만큼 이동한 오른쪽 상단
+        [mc[0][0] + cv_distance(mc[0], mc[1]), mc[0][1] + cv_distance(mc[1], mc[2])]  # QR 코드의 가로, 세로만큼 이동한 하단
+    ], dtype="float32")
+
+    # 원근 변환 행렬 계산
+    M = cv.getAffineTransform(src_pts, dst_pts)
+
+    # 원본 이미지에 QR 코드가 차지하는 부분에만 캘리브레이션 적용
+    calibrated_image = image.copy()  # 원본 이미지를 복사
+    warped_qr = cv.warpAffine(image, M, (image.shape[1], image.shape[0]))  # 원본 이미지 크기에 맞게 변환
+    mask = np.zeros_like(image, dtype=np.uint8)  # 마스크 생성
+
+    # QR 코드 영역을 마스크로 설정
+    mask = cv.fillConvexPoly(mask, np.int32([dst_pts]), (255, 255, 255))
+    calibrated_image = cv.bitwise_and(calibrated_image, 255 - mask)  # QR 코드 영역 지우기
+    calibrated_image = cv.add(calibrated_image, cv.bitwise_and(warped_qr, mask))  # 캘리브레이션된 QR 코드 영역 추가
 
     return calibrated_image
 
@@ -217,6 +238,7 @@ def realtime_qr_detection():
 
         if processed_frame is not None:
             cv.imshow('QR Code Detection', processed_frame)
+            
         else:
             cv.imshow('QR Code Detection', frame)
 
