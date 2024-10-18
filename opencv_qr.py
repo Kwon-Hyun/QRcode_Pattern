@@ -10,10 +10,10 @@ import time
 # 3. 두 점 사이의 거리를 계산하며 그린 선분LM을 가지고, 세로 길이 측정.
 
 # QR 코드 방향 정의 (북쪽부터 시계 방향으로 돌아가유~)
-CV_QR_UP = 0 # 북
-CV_QR_RIGHT = 1  # 동
-CV_QR_DOWN = 2 # 남
-CV_QR_LEFT = 3  # 서
+CV_QR_UP = "위쪽" # 북 0
+CV_QR_RIGHT = "오른쪽"  # 동 1
+CV_QR_DOWN = "아래쪽" # 남 2
+CV_QR_LEFT = "왼쪽"  # 서 3
 
 # 두 점 사이의 거리를 계산하는 함수
 def cv_distance(P, Q):
@@ -128,6 +128,7 @@ def qr_calibration(image, mc, outlier, right, bottom, orientation):
     # QR 코드 영역을 마스크로 설정
     mask = cv.fillConvexPoly(mask, np.int32([dst_pts]), (255, 255, 255))
     calibrated_image = cv.bitwise_and(calibrated_image, 255 - mask)  # QR 코드 영역 지우기
+
     calibrated_image = cv.add(calibrated_image, cv.bitwise_and(warped_qr, mask))  # 캘리브레이션된 QR 코드 영역 추가
 
     return calibrated_image
@@ -153,14 +154,16 @@ def save_calibrated_image(image, folder="calibrated_qr_images"):
 
     # 이미지 저장
     cv.imwrite(filepath, image)
-    print(f"저장된 캘리브레이션 이미지~ : {filepath}")
+    print(" ")
+    #print(f"저장된 캘리브레이션 이미지~ : {filepath}")
 
 
 # QR code에서 3개의 Position Pattern Detection 및 방향 계산
 def detect_qr(image):
     # 간단한 이미지 전처리
     img_gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)    # 이미지 grayscale
-    img_canny = cv.Canny(img_gray, 100, 200)    # qr detection을 위한 Canny Edge detection
+    _, img_bin = cv.threshold(img_gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+    img_canny = cv.Canny(img_bin, 100, 200)    # qr detection을 위한 Canny Edge detection
 
     # 윤곽선 찾기
     contours, hierarchy = cv.findContours(img_canny, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)  # contour에서 3개의 alignment pattern 탐지
@@ -200,12 +203,15 @@ def detect_qr(image):
 
         # 회전 각도 계산
         rotation_angle = calculate_rotation_angle(slope)
-        print(f"QR code 기울기(회전각) : {rotation_angle}도")
+        print(f"QR code 기울기(회전각) : {rotation_angle} 도")
 
-        # 외곽선 그리기
+        # position pattern에 외곽선 그리기
         cv.drawContours(image, contours, A, (0, 255, 0), 2)
         cv.drawContours(image, contours, B, (255, 0, 0), 2)
         cv.drawContours(image, contours, C, (0, 0, 255), 2)
+
+        # QR 그 자체의 외곽 사각형을 그려서 외곽선 그리기
+        cv.drawContours(image, contours, (255, 255, 255), 2)
 
         # QR code calibration
         calibrated_image = qr_calibration(image, mc, outlier, right, bottom, orientation)
