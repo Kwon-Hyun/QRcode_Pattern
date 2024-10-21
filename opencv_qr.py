@@ -4,6 +4,8 @@ import math
 import os
 import time
 
+import timeit
+
 # algirithm
 # 1. position pattern 2개 기준으로 위쪽(0), 오(1), 아래(2), 왼(3)으로 설정해서 어느 쪽을 나타내는지 파악
 # 2. position pattern 2개따리의 각 중심점을 기준으로 두 점 사이 거리 게산
@@ -162,8 +164,8 @@ def save_calibrated_image(image, folder="calibrated_qr_images"):
 def detect_qr(image):
     # 간단한 이미지 전처리
     img_gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)    # 이미지 grayscale
-    _, img_bin = cv.threshold(img_gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
-    img_canny = cv.Canny(img_bin, 100, 200)    # qr detection을 위한 Canny Edge detection
+    #, img_bin = cv.threshold(img_gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)  
+    img_canny = cv.Canny(img_gray, 100, 200)    # qr detection을 위한 Canny Edge detection
 
     # 윤곽선 찾기
     contours, hierarchy = cv.findContours(img_canny, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)  # contour에서 3개의 alignment pattern 탐지
@@ -174,6 +176,11 @@ def detect_qr(image):
     for i in range(len(contours)):
         k = i
         c = 0
+
+        # hierarchy array에서 마지막 index == -1이면, External contour라는 의미!! 이므로 이 때, 외곽선을 그리면 됨. (drawContours 함수 활용)
+        # 만약 Internal contour를 그리고 싶으면, hierarchy array 마지막 index != -1인 걸 찾으면 됨~ 
+        # 참고 : https://blog.naver.com/PostView.naver?blogId=zeus05100&logNo=221737728483&parentCategoryNo=&categoryNo=&viewDate=&isShowPopularPosts=false&from=postView
+
         while hierarchy[0][k][2] != -1:
             k = hierarchy[0][k][2]
             c += 1
@@ -201,7 +208,14 @@ def detect_qr(image):
         print(f"QR 코드 방향: {orientation}")
         print(f"Top: {outlier}, Bottom: {bottom}, Right: {right}")
 
-        # 회전 각도 계산
+        # 회전 각도 계산 (QR code가 정사각형이라는 전제 하)
+            # 3개의 position pattern 중, median1, median2 두 점 사이의 기울기 기준
+            # 즉, QR code 2개의 position pattern 좌표를 이은 선분 기준으로 기울기 계산
+        # arctan 활용 - "도(degree)"로 변환하여 나타냄.
+
+        # 회전각(기울기) : +, - 각도로 표현되는데,,
+            # + 각도 : QR code가 오른쪽(시계방향으로 회전)으로 기울어진 경우.
+            # - 각도 : QR coee가 왼쪽(반시계방향으로 회전)으로 기울어진 경우.
         rotation_angle = calculate_rotation_angle(slope)
         print(f"QR code 기울기(회전각) : {rotation_angle} 도")
 
@@ -211,7 +225,6 @@ def detect_qr(image):
         cv.drawContours(image, contours, C, (0, 0, 255), 2)
 
         # QR 그 자체의 외곽 사각형을 그려서 외곽선 그리기
-        cv.drawContours(image, contours, (255, 255, 255), 2)
 
         # QR code calibration
         calibrated_image = qr_calibration(image, mc, outlier, right, bottom, orientation)
@@ -234,20 +247,57 @@ def realtime_qr_detection():
     while True:
         ret, frame = cap.read()
 
+
         if not ret:
             print("카메라에서 영상을 읽을 수 없습니다.")
             break
 
         try:
-            # QR code 감지 및 방향 표시
-            processed_frame = detect_qr(frame)
+            # FPS 성능평가 해볼까요?
+            # 참고 : https://deep-eye.tistory.com/15
+            #! FPS algorithm start
+            fps_start = timeit.default_timer()
 
-            if processed_frame is not None:
-                cv.imshow('QR Code Detection', processed_frame)
+            if ret is True:
+                # QR code 감지 및 방향 표시
+                processed_frame = detect_qr(frame)
                 
-            else:
-                cv.imshow('QR Code Detection', frame)
-            
+
+                if processed_frame is not None:
+                    # QR code가 인식되었을 때만 FPS 출력
+                    #! FPS algorithm finish
+                    fps_fin = timeit.default_timer()
+
+                    FPS = int(1./(fps_fin - fps_start))
+
+                    #! cv.CAP_PROP_FPS를 활용한 FPS algorithm
+                    cv_FPS = cap.get(cv.CAP_PROP_FPS)   # 웹캠에서 FPS값 획득하여, 앞선 방식의 FPS 결과와 비교해보기
+
+
+                    if cv_FPS == 0.0:
+                        cv_FPS = 30.0
+
+                    time_per_frame_video = 1/cv_FPS
+                    last_time = time.perf_counter()
+
+                    # cv fps 계산
+                    time_per_frame = time.perf_counter() - last_time
+                    time_sleep_frame = max(0, time_per_frame_video - time_per_frame)
+                    time.sleep(time_sleep_frame)
+
+                    real_fps = 1/(time_per_frame)
+                    last_time = time.perf_counter()
+
+
+                    cv.imshow('QR Code Detection', processed_frame)
+
+                    print(f"FPS : {FPS} fps")
+                    print(f"cv FPS : {real_fps} fps")
+                    print("\n")
+
+                    
+                else:
+                    cv.imshow('QR Code Detection', frame)
         
         except Exception as e:
             print(f"오류 발생 : {e}")
