@@ -3,7 +3,6 @@ import numpy as np
 import math
 import os
 import time
-
 import timeit
 
 # algirithm
@@ -91,6 +90,14 @@ def find_qr_orientation(contours, mc):
     return outlier, bottom, right, orientation, slope
 
 
+# 기울기(회전 각도) 계산하는 함수 (position pattern의 기울기 활용)
+def calculate_rotation_angle(slope):
+    # arctan 사용해서 기울기에서 각도 계산~
+    angle = np.degrees(np.arctan(slope))
+
+    # 기존 (-) 값으로 보이던 것을 수정하기 위해 angle 값에 조건을 달아서 Return
+    return angle if angle >=0 else 360 + angle
+
 
 # QR code calibration을 위한 함수 (feat.원근변환ㅎㅎ)
 def qr_calibration(image, mc, outlier, right, bottom, orientation):
@@ -124,6 +131,7 @@ def qr_calibration(image, mc, outlier, right, bottom, orientation):
 
     # 원본 이미지에 QR 코드가 차지하는 부분에만 캘리브레이션 적용
     calibrated_image = image.copy()  # 원본 이미지를 복사
+
     warped_qr = cv.warpAffine(image, M, (image.shape[1], image.shape[0]))  # 원본 이미지 크기에 맞게 변환
     mask = np.zeros_like(image, dtype=np.uint8)  # 마스크 생성
 
@@ -133,15 +141,11 @@ def qr_calibration(image, mc, outlier, right, bottom, orientation):
 
     calibrated_image = cv.add(calibrated_image, cv.bitwise_and(warped_qr, mask))  # 캘리브레이션된 QR 코드 영역 추가
 
-    return calibrated_image
+    # 2개의 Position pattern의 기울기 이용 - calibration 회전각 게산
+    calibrated_slope, _ = cv_lineSlope(mc[0], mc[1])
+    calibrated_rotation_angle = calculate_rotation_angle(calibrated_slope)
 
-
-# 기울기(회전 각도) 계산하는 함수 (position pattern의 기울기 활용)
-def calculate_rotation_angle(slope):
-    # arctan 사용해서 기울기에서 각도 계산~
-    angle = np.degrees(np.arctan(slope))
-
-    return angle
+    return calibrated_image, calibrated_rotation_angle
 
 
 # calibration된 이미지를 저장하는 함수
@@ -204,9 +208,12 @@ def detect_qr(image):
         ) for i in range(3)]
 
         outlier, bottom, right, orientation, slope = find_qr_orientation(contours, mc)
+        initial_rotation_angle = calculate_rotation_angle(slope)
 
         print(f"QR 코드 방향: {orientation}")
         print(f"Top: {outlier}, Bottom: {bottom}, Right: {right}")
+
+        print(f"초기 회전각 : {initial_rotation_angle:.2f} 도")
 
         # 회전 각도 계산 (QR code가 정사각형이라는 전제 하)
             # 3개의 position pattern 중, median1, median2 두 점 사이의 기울기 기준
@@ -224,15 +231,26 @@ def detect_qr(image):
         cv.drawContours(image, contours, B, (255, 0, 0), 2)
         cv.drawContours(image, contours, C, (0, 0, 255), 2)
 
+        ''' drawContours를 한 번에 해버리는 다른 방법으로는 
+        
+        for idx, color in zip([A, B, C], [(0, 255, 0), (255, 0, 0), (0, 0, 255)]):
+            cv.drawContours(image, contours, idx, color, 2)
+
+            이렇게도 가능. 이거는 좀 더 숙달되면 깔끔하게 써보자.'''
+
         # QR 그 자체의 외곽 사각형을 그려서 외곽선 그리기
 
         # QR code calibration
-        calibrated_image = qr_calibration(image, mc, outlier, right, bottom, orientation)
+        calibrated_image, calibration_rotation_angle = qr_calibration(image, mc, outlier, right, bottom, orientation)
 
         # calibration된 이미지 저장
         save_calibrated_image(calibrated_image)
 
-        return calibrated_image
+        # 화면에 캘리브레이션 회전각을 출력
+        cv.putText(image, f"Calibration 회전각: {calibration_rotation_angle:.2f} 도", (10, 30), 
+                   cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+        return image
     return None
 
 
@@ -246,7 +264,6 @@ def realtime_qr_detection():
 
     while True:
         ret, frame = cap.read()
-
 
         if not ret:
             print("카메라에서 영상을 읽을 수 없습니다.")
@@ -273,7 +290,6 @@ def realtime_qr_detection():
                     #! cv.CAP_PROP_FPS를 활용한 FPS algorithm
                     cv_FPS = cap.get(cv.CAP_PROP_FPS)   # 웹캠에서 FPS값 획득하여, 앞선 방식의 FPS 결과와 비교해보기
 
-
                     if cv_FPS == 0.0:
                         cv_FPS = 30.0
 
@@ -295,7 +311,6 @@ def realtime_qr_detection():
                     print(f"cv FPS : {real_fps} fps")
                     print("\n")
 
-                    
                 else:
                     cv.imshow('QR Code Detection', frame)
         

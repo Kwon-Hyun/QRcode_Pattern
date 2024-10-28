@@ -102,10 +102,4 @@ def track_object(objs, labels):
     arr_track_data[3] = y_deviation
 
 
-def move_robot():
-
-
-
-
-
-    
+#def move_robot():
