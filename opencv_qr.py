@@ -326,3 +326,4 @@ def realtime_qr_detection():
 
 if __name__ == "__main__":
     realtime_qr_detection()
+    
