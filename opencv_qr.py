@@ -167,13 +167,26 @@ def save_calibrated_image(image, folder="calibrated_qr_images"):
 # QR code에서 3개의 Position Pattern Detection 및 방향 계산
 def detect_qr(image):
     # 간단한 이미지 전처리
+    # 1. GrayScale 변환
     img_gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)    # 이미지 grayscale
-    #, img_bin = cv.threshold(img_gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)  
-    img_canny = cv.Canny(img_gray, 100, 200)    # qr detection을 위한 Canny Edge detection
+    
+    # 2. 이진화 (QR code 윤곽선을 명확하게 검출하기 위함)
+    _, img_bin = cv.threshold(img_gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
 
-    # 윤곽선 찾기
+    # 3. Morphology 연산 (그 중 열림 연산 활용 - 작은 노이즈 제거)
+        # 이 때 kernel 은 5x5 사용
+        # 열림 연산 => 큰 객체들은 사이즈 변화 별로 없음. (노이즈 제거에 효과적)
+    kernel = cv.getStructuringElement(cv.MORPH_RECT, (5, 5))
+    img_morph = cv.morphologyEx(img_bin, cv.MORPH_OPEN, kernel)
+
+    # 4. Canny Edge Detection (윤곽선 검출 !!)
+    img_canny = cv.Canny(img_gray, 100, 200)    # qr detection을 위함
+
+    # 5. 윤곽선 찾기
     contours, hierarchy = cv.findContours(img_canny, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)  # contour에서 3개의 alignment pattern 탐지
 
+
+    # 전처리를 완료했다면 이제 QR code Position Pattern을 탐지해보아요..
     mark = 0
     A, B, C = None, None, None
 
@@ -326,4 +339,3 @@ def realtime_qr_detection():
 
 if __name__ == "__main__":
     realtime_qr_detection()
-    
