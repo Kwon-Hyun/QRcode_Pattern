@@ -5,7 +5,7 @@ import os
 import time
 import timeit
 
-# algirithm
+# algorithm
 # 1. position pattern 2개 기준으로 위쪽(0), 오(1), 아래(2), 왼(3)으로 설정해서 어느 쪽을 나타내는지 파악
 # 2. position pattern 2개따리의 각 중심점을 기준으로 두 점 사이 거리 게산
 # 3. 두 점 사이의 거리를 계산하며 그린 선분LM을 가지고, 세로 길이 측정.
